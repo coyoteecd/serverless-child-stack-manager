@@ -1,12 +1,12 @@
 
 interface ServerlessChildStackManagerConfig {
   /**
-   * Name pattern for child stacks.
+   * Name prefix for child stacks.
    */
-  childStacksNamePattern: string;
+  childStacksNamePrefix: string;
   /**
    * What to do with the child stacks when the service is removed via 'serverless remove':
-   * - remove => removes all the stacks that match the childStacksNamePattern
+   * - remove => removes all the stacks whose name starts with childStacksNamePrefix.
    * - keep => leaves the stacks in place
    */
   removalPolicy: 'remove' | 'keep';
@@ -15,4 +15,9 @@ interface ServerlessChildStackManagerConfig {
    * This role needs permissions to remove resources in the stacks.
    */
   cfnRole?: string;
+  /**
+   * Maximum number of parallel stack operations to perform.
+   * Useful to avoid throttling errors from AWS.
+   */
+  maxConcurrentCount: number;
 }

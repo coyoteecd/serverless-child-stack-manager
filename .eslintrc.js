@@ -19,7 +19,7 @@ module.exports = {
     // Typescript's unused variable checking is already enabled in tsconfig
     '@typescript-eslint/no-unused-vars': 'off',
     'no-unused-vars': 'off',
-    
+
     // too strict
     'lines-between-class-members': 'off',
     'comma-dangle': 'off',
@@ -30,10 +30,15 @@ module.exports = {
     }],
     'no-constant-condition': 'off',
     'no-await-in-loop': 'off',
+    'arrow-parens': 'off',
+    'function-paren-newline': ['error', 'consistent'],
+    'no-useless-constructor': 'off',
+    'import/extensions': 'off',
+    'import/no-unresolved': 'off',
 
     "@typescript-eslint/explicit-function-return-type": ["error", {
       "allowExpressions": true,
       "allowTypedFunctionExpressions": true
-    }]    
+    }]
   }
 };
