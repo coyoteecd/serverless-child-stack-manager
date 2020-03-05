@@ -1,0 +1,40 @@
+{
+  "name": "serverless-child-stack-manager",
+  "version": "0.0.1",
+  "description": "Serverless plugin for removing a set of related stacks upon 'serverless remove'",
+  "main": "dist/index.js",
+  "scripts": {
+    "prebuild": "npm run lint",
+    "build": "tsc",
+    "lint": "eslint \"**/*.ts\" --ignore-path .gitignore"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coyoteecd/serverless-child-stack-manager.git"
+  },
+  "keywords": [
+    "serverless",
+    "serverless-plugin",
+    "aws",
+    "stackset"
+  ],
+  "author": "coyoteecd",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/coyoteecd/serverless-child-stack-manager/issues"
+  },
+  "homepage": "https://github.com/coyoteecd/serverless-child-stack-manager#readme",
+  "devDependencies": {
+    "@types/node": "^12.12.29",
+    "@types/serverless": "^1.18.6",
+    "@typescript-eslint/eslint-plugin": "^2.22.0",
+    "@typescript-eslint/parser": "^2.22.0",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.20.1",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.633.0"
+  }
+}
