@@ -5,8 +5,14 @@
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "npm run lint",
-    "build": "tsc",
-    "lint": "eslint \"**/*.ts\" --ignore-path .gitignore"
+    "build": "tsc --b tsconfig.app.json",
+    "lint": "eslint \"**/*.ts\" --ignore-path .gitignore",
+    "clean": "rimraf out-tsc",
+    "pretest:build": "npm run clean",
+    "test:build": "tsc --b tsconfig.spec.json",
+    "test:exec": "jasmine --config=jasmine.json",
+    "test": "npm run test:build && nyc npm run test:exec",
+    "test:ci": "npm run test:build && nyc --reporter=cobertura --reporter=html --reporter=text-summary npm run test:exec"
   },
   "repository": {
     "type": "git",
@@ -25,6 +31,7 @@
   },
   "homepage": "https://github.com/coyoteecd/serverless-child-stack-manager#readme",
   "devDependencies": {
+    "@types/jasmine": "^3.5.8",
     "@types/node": "^12.12.29",
     "@types/serverless": "^1.18.6",
     "@typescript-eslint/eslint-plugin": "^2.22.0",
@@ -33,6 +40,9 @@
     "eslint": "^6.8.0",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-plugin-import": "^2.20.1",
+    "jasmine": "^3.5.0",
+    "nyc": "^15.0.0",
+    "rimraf": "^3.0.2",
     "serverless": "^1.65.0",
     "typescript": "^3.8.3"
   },
