@@ -24,9 +24,13 @@ class ServerlessStackSetManager implements Plugin {
       this.serverless.cli.log(`Removing stacks prefixed with: ${config.childStacksNamePrefix}`);
 
       const stackIds = await this.listMatchingStacks(config.childStacksNamePrefix);
-      this.serverless.cli.log(`Found ${stackIds.length} stacks, starting delete operation`);
+      this.serverless.cli.log(`Found ${stackIds.length} stacks`);
 
-      await this.deleteStacks(stackIds, config.maxConcurrentCount);
+      if (stackIds.length > 0) {
+        this.serverless.cli.log('Starting delete operation');
+        await this.deleteStacks(stackIds, config.maxConcurrentCount);
+      }
+
       this.serverless.cli.log('Stacks removed successfully');
     } else {
       this.serverless.cli.log('Skipping remove of child stacks because of removalPolicy setting');
