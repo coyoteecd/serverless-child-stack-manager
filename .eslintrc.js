@@ -20,6 +20,9 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': 'off',
     'no-unused-vars': 'off',
 
+    // Controlled via .gitattributes
+    'linebreak-style': 'off',
+
     // too strict
     'lines-between-class-members': 'off',
     'comma-dangle': 'off',
