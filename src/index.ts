@@ -12,28 +12,29 @@ class ServerlessStackSetManager implements Plugin {
 
   constructor(private readonly serverless: Serverless) {
     this.hooks = {
-      'before:remove:remove': async () => this.afterRemove()
+      'before:remove:remove': async () => this.handleChildStacks('remove'),
+      'after:deploy:deploy': async () => this.handleChildStacks('deploy')
     };
     this.provider = serverless.getProvider('aws');
     this.stackMonitor = new ServerlessStackMonitor(this.serverless, this.provider);
   }
 
-  private async afterRemove(): Promise<void> {
+  private async handleChildStacks(action: string): Promise<void> {
     const config = this.loadConfig();
-    if (config.removalPolicy === 'remove') {
-      this.serverless.cli.log(`Removing stacks prefixed with: ${config.childStacksNamePrefix}`);
+    if (action === 'remove' && config.removalPolicy !== 'remove') {
+      this.serverless.cli.log('Skipping remove of child stacks because of removalPolicy setting');
+    } else {
+      this.serverless.cli.log(`Handle stacks prefixed with: ${config.childStacksNamePrefix}. Action: ${action}`);
 
       const stackIds = await this.listMatchingStacks(config.childStacksNamePrefix);
       this.serverless.cli.log(`Found ${stackIds.length} stacks`);
 
       if (stackIds.length > 0) {
-        this.serverless.cli.log('Starting delete operation');
-        await this.deleteStacks(stackIds, config.maxConcurrentCount);
+        this.serverless.cli.log('Starting operation');
+        await this.handleStacks(stackIds, config.maxConcurrentCount, action);
       }
 
-      this.serverless.cli.log('Stacks removed successfully');
-    } else {
-      this.serverless.cli.log('Skipping remove of child stacks because of removalPolicy setting');
+      this.serverless.cli.log('Operation successfully ended');
     }
   }
 
@@ -71,37 +72,37 @@ class ServerlessStackSetManager implements Plugin {
     return stackIds;
   }
 
-  private async deleteStacks(stackIds: string[], maxConcurrentCount: number): Promise<void> {
+  private async handleStacks(stackIds: string[], maxConcurrentCount: number, action: string): Promise<void> {
 
-    // We don't delete everything at once, because we risk being throttled by AWS
+    // We don't handle all stacks at once, because we risk being throttled by AWS
     //
-    // This map tracks the stack IDs being deleted and the related promises.
-    // Its size is capped to maxParallelDeletes value;
+    // This map tracks the stack IDs being deleted/deployed and the related promises.
+    // Its size is capped to maxConcurrentCount value;
     // once an operation completes, we remove it from the map and add another
     // so as to maintain the same number of ongoing delete operations.
-    const ongoingDeletes = new Map<string, Promise<string>>();
+    const ongoingActions = new Map<string, Promise<string>>();
 
-    // mutable queue of stack IDs to delete
+    // mutable queue of stack IDs to handle
     const queuedStackIds = Array.from(stackIds);
 
     // set up the initial batch
     queuedStackIds.splice(0, maxConcurrentCount).forEach(stackId => {
-      ongoingDeletes.set(stackId, this.deleteStack(stackId));
+      ongoingActions.set(stackId, action === 'remove' ? this.deleteStack(stackId) : this.deployStack(stackId));
     });
 
     while (true) {
-      const deletedStackId = await Promise.race(ongoingDeletes.values());
-      this.serverless.cli.log(`Stack ${deletedStackId} successfully deleted`);
+      const handledStackId = await Promise.race(ongoingActions.values());
+      this.serverless.cli.log(`Stack ${handledStackId} successfully handled for ${action}`);
 
       // remove the completed promise and queue another delete operation to keep CloudFormation busy
-      ongoingDeletes.delete(deletedStackId);
+      ongoingActions.delete(handledStackId);
       const nextStackId = queuedStackIds.pop();
       if (nextStackId) {
-        ongoingDeletes.set(nextStackId, this.deleteStack(nextStackId));
+        ongoingActions.set(nextStackId, action === 'remove' ? this.deleteStack(nextStackId) : this.deployStack(nextStackId));
       }
 
       // see if there's more work to do
-      if (ongoingDeletes.size === 0) {
+      if (ongoingActions.size === 0) {
         break;
       }
     }
@@ -114,6 +115,11 @@ class ServerlessStackSetManager implements Plugin {
     await this.provider.request('CloudFormation', 'deleteStack', deleteParams);
 
     return this.stackMonitor.monitor('removal', stackId).then(() => stackId);
+  }
+
+  private async deployStack(stackId: string): Promise<string> {
+    this.serverless.cli.log(`Deploying stack with id: ${stackId}`);
+    return stackId;
   }
 
   private loadConfig(): ServerlessChildStackManagerConfig {
