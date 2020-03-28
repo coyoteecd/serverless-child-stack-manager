@@ -31,7 +31,7 @@ class ServerlessStackSetManager implements Plugin {
 
       if (stackIds.length > 0) {
         this.serverless.cli.log('Starting operation');
-        await this.handleStacks(stackIds, config.maxConcurrentCount, action);
+        await this.handleStacks(stackIds, config, action);
       }
 
       this.serverless.cli.log('Operation successfully ended');
@@ -72,7 +72,7 @@ class ServerlessStackSetManager implements Plugin {
     return stackIds;
   }
 
-  private async handleStacks(stackIds: string[], maxConcurrentCount: number, action: string): Promise<void> {
+  private async handleStacks(stackIds: string[], config: ServerlessChildStackManagerConfig, action: string): Promise<void> {
 
     // We don't handle all stacks at once, because we risk being throttled by AWS
     //
@@ -86,8 +86,8 @@ class ServerlessStackSetManager implements Plugin {
     const queuedStackIds = Array.from(stackIds);
 
     // set up the initial batch
-    queuedStackIds.splice(0, maxConcurrentCount).forEach(stackId => {
-      ongoingActions.set(stackId, action === 'remove' ? this.deleteStack(stackId) : this.deployStack(stackId));
+    queuedStackIds.splice(0, config.maxConcurrentCount).forEach(stackId => {
+      ongoingActions.set(stackId, action === 'remove' ? this.deleteStack(stackId) : this.deployStack(stackId, config.upgradeFunction));
     });
 
     while (true) {
@@ -98,7 +98,7 @@ class ServerlessStackSetManager implements Plugin {
       ongoingActions.delete(handledStackId);
       const nextStackId = queuedStackIds.pop();
       if (nextStackId) {
-        ongoingActions.set(nextStackId, action === 'remove' ? this.deleteStack(nextStackId) : this.deployStack(nextStackId));
+        ongoingActions.set(nextStackId, action === 'remove' ? this.deleteStack(nextStackId) : this.deployStack(nextStackId, config.upgradeFunction));
       }
 
       // see if there's more work to do
@@ -117,9 +117,19 @@ class ServerlessStackSetManager implements Plugin {
     return this.stackMonitor.monitor('removal', stackId).then(() => stackId);
   }
 
-  private async deployStack(stackId: string): Promise<string> {
-    this.serverless.cli.log(`Deploying stack with id: ${stackId}`);
-    return stackId;
+  private async deployStack(stackId: string, functionName: string): Promise<string> {
+    this.serverless.cli.log(`Deploying stack with id: ${stackId} and upgrade function: ${functionName}`);
+
+    const params = {
+      FunctionName: functionName,
+      InvocationType: 'Event',
+      LogType: 'None',
+      Payload: JSON.stringify({ stackId }),
+    };
+
+    await this.provider.request('Lambda', 'invoke', params);
+
+    return this.stackMonitor.monitor('update', stackId).then(() => stackId);
   }
 
   private loadConfig(): ServerlessChildStackManagerConfig {
@@ -131,7 +141,8 @@ class ServerlessStackSetManager implements Plugin {
     return {
       childStacksNamePrefix: providedConfig.childStacksNamePrefix,
       removalPolicy: providedConfig.removalPolicy || 'keep',
-      maxConcurrentCount: providedConfig.maxConcurrentCount || 5
+      maxConcurrentCount: providedConfig.maxConcurrentCount || 5,
+      upgradeFunction: providedConfig.upgradeFunction || ''
     };
   }
 }

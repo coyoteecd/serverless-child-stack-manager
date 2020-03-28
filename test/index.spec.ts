@@ -78,7 +78,7 @@ describe('ServerlessStackSetManager', () => {
 
     const provRequestSpy = jasmine.createSpy()
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
-      .withArgs(jasmine.any(String), 'deployStack', jasmine.anything()).and.resolveTo(undefined);
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
 
     const cliLogSpy = jasmine.createSpy();
 
@@ -101,11 +101,15 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
     await expectAsync(deployFn()).toBeResolved();
 
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(2, 'Should have invoked 2 invokes');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(2, 'Should have started 2 monitors');
     expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Operation successfully ended');
   });
 

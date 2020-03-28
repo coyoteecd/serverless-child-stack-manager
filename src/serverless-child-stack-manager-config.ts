@@ -20,4 +20,8 @@ interface ServerlessChildStackManagerConfig {
    * Useful to avoid throttling errors from AWS.
    */
   maxConcurrentCount: number;
+  /**
+   * The name of the lambda that must be invoked when upgrading a child stack
+   */
+  upgradeFunction: string;
 }
