@@ -9,5 +9,5 @@ This can be useful to manage tenant resources in multi-tenant apps, when each te
 
 This repo contains work in progress, do not use.
 
-[icon-ci]: https://img.shields.io/travis/com/coyoteecd/serverless-child-stack-manager.svg?longCache=true&style=flat-square
+[icon-ci]: https://travis-ci.com/coyoteecd/serverless-child-stack-manager.svg?branch=master
 [link-ci]: https://travis-ci.com/coyoteecd/serverless-child-stack-manager
