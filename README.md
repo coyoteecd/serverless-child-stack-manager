@@ -5,7 +5,7 @@
 [![build status][icon-ci]][link-ci]
 [![npm version][icon-npm]][link-npm]
 
-Removes one or more related CloudFormation stacks when running 'serverless remove'.
+Removes or deploys one or more related CloudFormation stacks when running 'serverless remove' or 'serverless deploy'.
 This can be useful to manage tenant resources in multi-tenant apps, when each tenant has a corresponding stack.
 
 **NOTE**
