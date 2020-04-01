@@ -62,7 +62,7 @@ describe('ServerlessStackSetManager', () => {
 
     expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack').length).toBe(2, 'Should have invoked 2 deletes');
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal').length).toBe(2, 'Should have started 2 monitors');
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Operation successfully ended');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully removed');
   });
 
   it('should deploy all stacks with the specified prefixes', async () => {
@@ -110,7 +110,7 @@ describe('ServerlessStackSetManager', () => {
 
     expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(2, 'Should have invoked 2 invokes');
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(2, 'Should have started 2 monitors');
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Operation successfully ended');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully updated');
   });
 
   it('should read all paged listings and delete all stacks with the specified prefix', async () => {
@@ -175,10 +175,10 @@ describe('ServerlessStackSetManager', () => {
 
     expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack').length).toBe(5, 'Should have invoked 5 deletes');
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal').length).toBe(5, 'Should have started 5 monitors');
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Operation successfully ended');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully removed');
   });
 
-  it('should do nothing if the stack listing yields no result', async () => {
+  it('should not delete if the stack listing yields no result', async () => {
     const cliLogSpy = jasmine.createSpy();
 
     // Create serverless spy object
@@ -204,7 +204,60 @@ describe('ServerlessStackSetManager', () => {
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Operation successfully ended');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('There are no stacks to remove');
+  });
+
+  it('should skip when the removalPolicy is set to keep', async () => {
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj(['getProvider'], {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: 'dontcare'
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const removeFn = stackManager.hooks['before:remove:remove'];
+
+    // Invoke the actual remove function
+    await expectAsync(removeFn()).toBeResolved();
+    expect(cliLogSpy.calls.mostRecent().args[0]).toEqual(jasmine.stringMatching(/^Skipping remove.*removalPolicy/));
+  });
+
+  it('should not deploy if the stack listing yields no result', async () => {
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: jasmine.createSpy().and.resolveTo({}) } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: 'DontCare',
+            removalPolicy: 'remove'
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const removeFn = stackManager.hooks['after:deploy:deploy'];
+
+    // Invoke the actual remove function
+    await expectAsync(removeFn()).toBeResolved();
+
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('There are no stacks to update');
   });
 
   it('should skip when the removalPolicy is set to keep', async () => {
