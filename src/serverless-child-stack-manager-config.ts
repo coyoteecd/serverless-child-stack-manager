@@ -24,4 +24,9 @@ interface ServerlessChildStackManagerConfig {
    * The name of the lambda that must be invoked when upgrading a child stack
    */
   upgradeFunction: string;
+  /**
+   * Whether to continue or not with removing/deploying the rest of the child stacks
+   * when a stack is failing to remove/deploy
+   */
+  continueOnFailure: boolean;
 }

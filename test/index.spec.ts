@@ -1,4 +1,5 @@
 import { ServerlessStackMonitor } from 'src/serverless-stack-monitor';
+import { StackActionError } from '../src/stack-action-error';
 import notMatching from './matchers/custom-matchers';
 
 import CloudFormation = require('aws-sdk/clients/cloudformation');
@@ -45,7 +46,8 @@ describe('ServerlessStackSetManager', () => {
           'serverless-child-stack-manager': {
             childStacksNamePrefix: prefixToDelete,
             removalPolicy: 'remove',
-            maxConcurrentCount: 1
+            maxConcurrentCount: 1,
+            continueOnFailure: false
           } as Partial<ServerlessChildStackManagerConfig>
         }
       })
@@ -94,7 +96,8 @@ describe('ServerlessStackSetManager', () => {
           'serverless-child-stack-manager': {
             childStacksNamePrefix: prefixToDeploy,
             removalPolicy: 'remove',
-            maxConcurrentCount: 1
+            maxConcurrentCount: 1,
+            continueOnFailure: false
           } as Partial<ServerlessChildStackManagerConfig>
         }
       })
@@ -158,7 +161,8 @@ describe('ServerlessStackSetManager', () => {
           'serverless-child-stack-manager': {
             childStacksNamePrefix: prefixToDelete,
             removalPolicy: 'remove',
-            maxConcurrentCount: 2
+            maxConcurrentCount: 2,
+            continueOnFailure: false
           } as Partial<ServerlessChildStackManagerConfig>
         }
       })
@@ -245,7 +249,8 @@ describe('ServerlessStackSetManager', () => {
         custom: {
           'serverless-child-stack-manager': {
             childStacksNamePrefix: 'DontCare',
-            removalPolicy: 'remove'
+            removalPolicy: 'remove',
+            continueOnFailure: false
           } as Partial<ServerlessChildStackManagerConfig>
         }
       })
@@ -304,4 +309,157 @@ describe('ServerlessStackSetManager', () => {
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeRejectedWithError(/childStacksNamePrefix is required/);
   });
+
+  it('should stop deploying other stacks when a stack fails deploying', async () => {
+
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+        { StackId: 2, StackName: `${prefixToDeploy}-FakeEntry2` },
+        { StackId: 3, StackName: `${prefixToDeploy}-FakeEntry3` }
+      ] as unknown as CloudFormation.StackSummary[]
+    } as CloudFormation.ListStacksOutput;
+
+    const provRequestSpy = jasmine.createSpy()
+      .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: provRequestSpy } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: prefixToDeploy,
+            removalPolicy: 'remove',
+            maxConcurrentCount: 1,
+            continueOnFailure: false
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
+    const failingStackId = '1';
+    const errorMessage = 'terrible error';
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError(new StackActionError(failingStackId, errorMessage));
+
+    // Invoke the actual deploy function
+    const deployFn = stackManager.hooks['after:deploy:deploy'];
+    await expectAsync(deployFn()).toBeRejectedWithError(errorMessage);
+
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(1, 'Should have invoked only 1 invoke');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(1, 'Should have started only 1 monitor');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toContain(errorMessage);
+  });
+
+  it('should continue deploying other stacks when a stack fails deploying', async () => {
+
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+        { StackId: 2, StackName: `${prefixToDeploy}-FakeEntry2` },
+        { StackId: 3, StackName: `${prefixToDeploy}-FakeEntry3` }
+      ] as unknown as CloudFormation.StackSummary[]
+    } as CloudFormation.ListStacksOutput;
+
+    const provRequestSpy = jasmine.createSpy()
+      .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: provRequestSpy } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: prefixToDeploy,
+            removalPolicy: 'remove',
+            maxConcurrentCount: 1,
+            continueOnFailure: true
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
+    const errorMessage = 'terrible error';
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.callFake((_actionDescription, stackId) => {
+      throw new StackActionError(stackId, errorMessage);
+    });
+
+    // Invoke the actual deploy function
+    const deployFn = stackManager.hooks['after:deploy:deploy'];
+    await expectAsync(deployFn()).toBeResolved();
+
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(3, 'Should have invoked all 3 invokes');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(3, 'Should have started all 3 monitors');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully updated');
+  });
+
+  it('should stop deploying other stacks when a stack fails with other error than the stack-action-error', async () => {
+
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+        { StackId: 2, StackName: `${prefixToDeploy}-FakeEntry2` },
+        { StackId: 3, StackName: `${prefixToDeploy}-FakeEntry3` }
+      ] as unknown as CloudFormation.StackSummary[]
+    } as CloudFormation.ListStacksOutput;
+
+    const provRequestSpy = jasmine.createSpy()
+      .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: provRequestSpy } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: prefixToDeploy,
+            removalPolicy: 'remove',
+            maxConcurrentCount: 1,
+            continueOnFailure: true
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
+    const errorMessage = 'terrible error';
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError(errorMessage);
+
+    // Invoke the actual deploy function
+    const deployFn = stackManager.hooks['after:deploy:deploy'];
+    await expectAsync(deployFn()).toBeRejectedWithError(errorMessage);
+
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(1, 'Should have invoked only 1 invoke');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(1, 'Should have started only 1 monitor');
+  });
+
 });
