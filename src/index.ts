@@ -1,5 +1,4 @@
 import { ServerlessStackMonitor } from './serverless-stack-monitor';
-import { StackActionError } from './stack-action-error';
 
 import Serverless = require('serverless');
 import Plugin = require('serverless/classes/Plugin');
@@ -33,11 +32,13 @@ class ServerlessStackSetManager implements Plugin {
       if (stackIds.length > 0) {
         this.serverless.cli.log('Starting delete operation');
 
-        const deleteAction: StackAction = stackId => this.deleteStack(stackId);
-        await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, config.continueOnFailure, deleteAction);
+        const deleteAction: StackAction = stackId => this
+          .deleteStack(stackId)
+          .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
+        await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, deleteAction);
         this.serverless.cli.log('Stacks successfully removed');
       } else {
-        this.serverless.cli.log('There are no stacks to remove');
+        this.serverless.cli.log('Skipping remove of child stacks because no stacks found');
       }
 
     } else {
@@ -54,20 +55,31 @@ class ServerlessStackSetManager implements Plugin {
 
     if (stackIds.length > 0) {
       this.serverless.cli.log('Starting update operation');
-      const updateAction: StackAction = stackId => this.deployStack(stackId, config.upgradeFunction);
-      await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, config.continueOnFailure, updateAction);
+      const updateAction: StackAction = stackId => this
+        .deployStack(stackId, config.upgradeFunction)
+        .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
+      await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, updateAction);
       this.serverless.cli.log('Stacks successfully updated');
     } else {
-      this.serverless.cli.log('There are no stacks to update');
+      this.serverless.cli.log('Skipping update of child stacks because no stacks found');
     }
+  }
+
+  private handleStackActionError(error: Error, stackId: string, continueOnFailure: boolean): string {
+    if (continueOnFailure) {
+      this.serverless.cli.log(`Stack ${stackId} failed: ${error}`);
+      this.serverless.cli.log(`Stack ${stackId} failure ignored because continueOnFailure=true`);
+      return stackId;
+    }
+
+    throw error;
   }
 
   /**
    * Deletes or deploys the child stacks, parallelizing the stack action
    * so that no more than maxConcurrentCount stacks are changed simultaneously.
    */
-  private async executeConcurrentStackActions(stackIds: string[], maxConcurrentCount: number,
-    continueOnFailure: boolean, stackAction: StackAction): Promise<void> {
+  private async executeConcurrentStackActions(stackIds: string[], maxConcurrentCount: number, stackAction: StackAction): Promise<void> {
 
     // We don't delete/deploy everything at once, because we risk being throttled by AWS
     //
@@ -76,7 +88,6 @@ class ServerlessStackSetManager implements Plugin {
     // once an operation completes, we remove it from the map and add another
     // so as to maintain the same number of ongoing delete operations.
     const ongoingUpdates = new Map<string, Promise<string>>();
-    let updatedStackId;
 
     // mutable queue of stack IDs to delete
     const queuedStackIds = Array.from(stackIds);
@@ -87,22 +98,11 @@ class ServerlessStackSetManager implements Plugin {
     });
 
     while (true) {
-      try {
-        updatedStackId = await Promise.race(ongoingUpdates.values());
-      } catch (ex) {
-        if (ex instanceof StackActionError) {
-          updatedStackId = ex.stackId;
-        }
-        this.serverless.cli.log(`Stack ${updatedStackId} failed (continueOnFailure = ${continueOnFailure}). Error: ${ex.message}`);
-        if (!continueOnFailure || !updatedStackId) {
-          // also stop when the updateStackId is undefined (should not happen though)
-          throw ex;
-        }
-      }
-      this.serverless.cli.log(`Stack ${updatedStackId} handled.`);
+      const completedStackId = await Promise.race(ongoingUpdates.values());
+      this.serverless.cli.log(`Stack ${completedStackId} operation completed.`);
 
       // remove the completed promise and queue another delete operation to keep CloudFormation busy
-      ongoingUpdates.delete(updatedStackId);
+      ongoingUpdates.delete(completedStackId);
       const nextStackId = queuedStackIds.pop();
       if (nextStackId) {
         ongoingUpdates.set(nextStackId, stackAction(nextStackId));
@@ -170,7 +170,7 @@ class ServerlessStackSetManager implements Plugin {
     };
 
     await this.provider.request('Lambda', 'invoke', params);
-    return this.stackMonitor.monitor('update', stackId).then(() => stackId).catch(err => { throw new StackActionError(stackId, err.message); });
+    return this.stackMonitor.monitor('update', stackId).then(() => stackId);
   }
 
   private loadConfig(): ServerlessChildStackManagerConfig {

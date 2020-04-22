@@ -1,5 +1,4 @@
 import { ServerlessStackMonitor } from 'src/serverless-stack-monitor';
-import { StackActionError } from '../src/stack-action-error';
 import notMatching from './matchers/custom-matchers';
 
 import CloudFormation = require('aws-sdk/clients/cloudformation');
@@ -208,7 +207,7 @@ describe('ServerlessStackSetManager', () => {
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('There are no stacks to remove');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Skipping remove of child stacks because no stacks found');
   });
 
   it('should skip when the removalPolicy is set to keep', async () => {
@@ -257,36 +256,12 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const removeFn = stackManager.hooks['after:deploy:deploy'];
+    const deployFn = stackManager.hooks['after:deploy:deploy'];
 
     // Invoke the actual remove function
-    await expectAsync(removeFn()).toBeResolved();
+    await expectAsync(deployFn()).toBeResolved();
 
-    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('There are no stacks to update');
-  });
-
-  it('should skip when the removalPolicy is set to keep', async () => {
-    const cliLogSpy = jasmine.createSpy();
-
-    // Create serverless spy object
-    const serverless = jasmine.createSpyObj(['getProvider'], {
-      // Serverless properties
-      cli: ({ log: cliLogSpy }),
-      service: jasmine.createSpyObj([], {
-        custom: {
-          'serverless-child-stack-manager': {
-            childStacksNamePrefix: 'dontcare'
-          } as Partial<ServerlessChildStackManagerConfig>
-        }
-      })
-    });
-
-    const stackManager = new ServerlessStackSetManager(serverless);
-    const removeFn = stackManager.hooks['before:remove:remove'];
-
-    // Invoke the actual remove function
-    await expectAsync(removeFn()).toBeResolved();
-    expect(cliLogSpy.calls.mostRecent().args[0]).toEqual(jasmine.stringMatching(/^Skipping remove.*removalPolicy/));
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Skipping update of child stacks because no stacks found');
   });
 
   it('should throw when the stack prefix is omitted', async () => {
@@ -310,7 +285,7 @@ describe('ServerlessStackSetManager', () => {
     await expectAsync(removeFn()).toBeRejectedWithError(/childStacksNamePrefix is required/);
   });
 
-  it('should stop deploying other stacks when a stack fails deploying', async () => {
+  it('should stop deploying other stacks when a stack fails and continueOnFailure is false', async () => {
 
     const prefixToDeploy = 'FakePrefix';
     const fakeListOutput = {
@@ -348,9 +323,8 @@ describe('ServerlessStackSetManager', () => {
 
     const stackManager = new ServerlessStackSetManager(serverless);
     const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
-    const failingStackId = '1';
     const errorMessage = 'terrible error';
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError(new StackActionError(failingStackId, errorMessage));
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith(new Error(errorMessage));
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -358,10 +332,9 @@ describe('ServerlessStackSetManager', () => {
 
     expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(1, 'Should have invoked only 1 invoke');
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(1, 'Should have started only 1 monitor');
-    expect(cliLogSpy.calls.mostRecent().args[0]).toContain(errorMessage);
   });
 
-  it('should continue deploying other stacks when a stack fails deploying', async () => {
+  it('should continue deploying other stacks when a stack fails and continueOnFailure is true', async () => {
 
     const prefixToDeploy = 'FakePrefix';
     const fakeListOutput = {
@@ -399,10 +372,7 @@ describe('ServerlessStackSetManager', () => {
 
     const stackManager = new ServerlessStackSetManager(serverless);
     const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
-    const errorMessage = 'terrible error';
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.callFake((_actionDescription, stackId) => {
-      throw new StackActionError(stackId, errorMessage);
-    });
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError('terrible error');
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -413,7 +383,7 @@ describe('ServerlessStackSetManager', () => {
     expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully updated');
   });
 
-  it('should stop deploying other stacks when a stack fails with other error than the stack-action-error', async () => {
+  it('should stop removing other stacks when a stack fails and continueOnFailure is false', async () => {
 
     const prefixToDeploy = 'FakePrefix';
     const fakeListOutput = {
@@ -443,7 +413,7 @@ describe('ServerlessStackSetManager', () => {
             childStacksNamePrefix: prefixToDeploy,
             removalPolicy: 'remove',
             maxConcurrentCount: 1,
-            continueOnFailure: true
+            continueOnFailure: false
           } as Partial<ServerlessChildStackManagerConfig>
         }
       })
@@ -452,7 +422,7 @@ describe('ServerlessStackSetManager', () => {
     const stackManager = new ServerlessStackSetManager(serverless);
     const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
     const errorMessage = 'terrible error';
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError(errorMessage);
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith(new Error(errorMessage));
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -462,4 +432,52 @@ describe('ServerlessStackSetManager', () => {
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(1, 'Should have started only 1 monitor');
   });
 
+  it('should continue removing other stacks when a stack fails and continueOnFailure is true', async () => {
+
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+        { StackId: 2, StackName: `${prefixToDeploy}-FakeEntry2` },
+        { StackId: 3, StackName: `${prefixToDeploy}-FakeEntry3` }
+      ] as unknown as CloudFormation.StackSummary[]
+    } as CloudFormation.ListStacksOutput;
+
+    const provRequestSpy = jasmine.createSpy()
+      .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
+      .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
+
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: provRequestSpy } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: prefixToDeploy,
+            removalPolicy: 'remove',
+            maxConcurrentCount: 1,
+            continueOnFailure: true
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
+    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith('terrible error');
+
+    // Invoke the actual deploy function
+    const removeFn = stackManager.hooks['before:remove:remove'];
+    await expectAsync(removeFn()).toBeResolved();
+
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack').length).toBe(3, 'Should have deleted all 3 stacks');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal').length).toBe(3, 'Should have started all 3 monitors');
+    expect(cliLogSpy.calls.mostRecent().args[0]).toBe('Stacks successfully removed');
+  });
 });
