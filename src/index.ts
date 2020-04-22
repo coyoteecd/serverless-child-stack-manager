@@ -32,11 +32,13 @@ class ServerlessStackSetManager implements Plugin {
       if (stackIds.length > 0) {
         this.serverless.cli.log('Starting delete operation');
 
-        const deleteAction: StackAction = stackId => this.deleteStack(stackId);
+        const deleteAction: StackAction = stackId => this
+          .deleteStack(stackId)
+          .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
         await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, deleteAction);
         this.serverless.cli.log('Stacks successfully removed');
       } else {
-        this.serverless.cli.log('There are no stacks to remove');
+        this.serverless.cli.log('Skipping remove of child stacks because no stacks found');
       }
 
     } else {
@@ -53,12 +55,24 @@ class ServerlessStackSetManager implements Plugin {
 
     if (stackIds.length > 0) {
       this.serverless.cli.log('Starting update operation');
-      const updateAction: StackAction = stackId => this.deployStack(stackId, config.upgradeFunction);
+      const updateAction: StackAction = stackId => this
+        .deployStack(stackId, config.upgradeFunction)
+        .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
       await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, updateAction);
       this.serverless.cli.log('Stacks successfully updated');
     } else {
-      this.serverless.cli.log('There are no stacks to update');
+      this.serverless.cli.log('Skipping update of child stacks because no stacks found');
     }
+  }
+
+  private handleStackActionError(error: Error, stackId: string, continueOnFailure: boolean): string {
+    if (continueOnFailure) {
+      this.serverless.cli.log(`Stack ${stackId} failed: ${error}`);
+      this.serverless.cli.log(`Stack ${stackId} failure ignored because continueOnFailure=true`);
+      return stackId;
+    }
+
+    throw error;
   }
 
   /**
@@ -84,11 +98,11 @@ class ServerlessStackSetManager implements Plugin {
     });
 
     while (true) {
-      const updatedStackId = await Promise.race(ongoingUpdates.values());
-      this.serverless.cli.log(`Stack ${updatedStackId} successfully deleted`);
+      const completedStackId = await Promise.race(ongoingUpdates.values());
+      this.serverless.cli.log(`Stack ${completedStackId} operation completed.`);
 
       // remove the completed promise and queue another delete operation to keep CloudFormation busy
-      ongoingUpdates.delete(updatedStackId);
+      ongoingUpdates.delete(completedStackId);
       const nextStackId = queuedStackIds.pop();
       if (nextStackId) {
         ongoingUpdates.set(nextStackId, stackAction(nextStackId));
@@ -109,7 +123,8 @@ class ServerlessStackSetManager implements Plugin {
         'CREATE_COMPLETE',
         'ROLLBACK_COMPLETE',
         'UPDATE_COMPLETE',
-        'IMPORT_COMPLETE'
+        'IMPORT_COMPLETE',
+        'UPDATE_ROLLBACK_COMPLETE',
       ]
     };
     const stackIds: string[] = [];
@@ -155,7 +170,6 @@ class ServerlessStackSetManager implements Plugin {
     };
 
     await this.provider.request('Lambda', 'invoke', params);
-
     return this.stackMonitor.monitor('update', stackId).then(() => stackId);
   }
 
@@ -169,7 +183,8 @@ class ServerlessStackSetManager implements Plugin {
       childStacksNamePrefix: providedConfig.childStacksNamePrefix,
       removalPolicy: providedConfig.removalPolicy || 'keep',
       maxConcurrentCount: providedConfig.maxConcurrentCount || 5,
-      upgradeFunction: providedConfig.upgradeFunction || ''
+      upgradeFunction: providedConfig.upgradeFunction || '',
+      continueOnFailure: providedConfig.continueOnFailure || false
     };
   }
 }
