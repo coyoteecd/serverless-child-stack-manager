@@ -1,8 +1,9 @@
 import CloudFormation from 'aws-sdk/clients/cloudformation';
+import Lambda from 'aws-sdk/clients/lambda';
 import Serverless from 'serverless';
 import Plugin from 'serverless/classes/Plugin';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
-import { ServerlessStackMonitor } from './serverless-stack-monitor';
+import ServerlessStackMonitor from './serverless-stack-monitor';
 
 type StackAction = (stackId: string) => Promise<string>;
 
@@ -163,12 +164,16 @@ export default class ServerlessStackSetManager implements Plugin {
 
     const params = {
       FunctionName: upgradeFunction,
-      InvocationType: 'Event',
+      InvocationType: 'RequestResponse',
       LogType: 'None',
       Payload: JSON.stringify({ stackId }),
     };
 
-    await this.provider.request('Lambda', 'invoke', params);
+    const response: Lambda.InvocationResponse = await this.provider.request('Lambda', 'invoke', params);
+    if (response.FunctionError && response.Payload) {
+      const errorDetail: { errorMessage: string } = JSON.parse(response.Payload.toString());
+      throw new Error(errorDetail.errorMessage);
+    }
     return this.stackMonitor.monitor('update', stackId).then(() => stackId);
   }
 

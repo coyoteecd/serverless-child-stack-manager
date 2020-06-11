@@ -1,7 +1,8 @@
 import CloudFormation from 'aws-sdk/clients/cloudformation';
+import Lambda from 'aws-sdk/clients/lambda';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
 import ServerlessStackSetManager from '../src/index';
-import { ServerlessStackMonitor } from '../src/serverless-stack-monitor';
+import ServerlessStackMonitor from '../src/serverless-stack-monitor';
 import notMatching from './matchers/custom-matchers';
 
 describe('ServerlessStackSetManager', () => {
@@ -75,7 +76,7 @@ describe('ServerlessStackSetManager', () => {
 
     const provRequestSpy = jasmine.createSpy()
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
-      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
     const cliLogSpy = jasmine.createSpy();
 
@@ -292,7 +293,7 @@ describe('ServerlessStackSetManager', () => {
 
     const provRequestSpy = jasmine.createSpy()
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
-      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
     const cliLogSpy = jasmine.createSpy();
 
@@ -327,6 +328,59 @@ describe('ServerlessStackSetManager', () => {
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(1, 'Should have started only 1 monitor');
   });
 
+  it('should fail deployment when invoking the upgradeFunction returns an error and continueOnFailure is false', async () => {
+
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+        { StackId: 2, StackName: `${prefixToDeploy}-FakeEntry2` },
+      ] as unknown as CloudFormation.StackSummary[]
+    } as CloudFormation.ListStacksOutput;
+
+    const errorMessage = 'Internal error';
+    const errorResponse: Lambda.InvocationResponse = {
+      StatusCode: 200,
+      FunctionError: 'Crashed',
+      Payload: JSON.stringify({ errorMessage })
+    };
+
+    const provRequestSpy = jasmine.createSpy()
+      .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(errorResponse);
+
+    const cliLogSpy = jasmine.createSpy();
+
+    // Create serverless spy object
+    const serverless = jasmine.createSpyObj({
+      // Serverless methods
+      getProvider: ({ request: provRequestSpy } as unknown as Aws)
+    }, {
+      // Serverless properties
+      cli: ({ log: cliLogSpy }),
+      service: jasmine.createSpyObj([], {
+        custom: {
+          'serverless-child-stack-manager': {
+            childStacksNamePrefix: prefixToDeploy,
+            removalPolicy: 'remove',
+            maxConcurrentCount: 1,
+            continueOnFailure: false
+          } as Partial<ServerlessChildStackManagerConfig>
+        }
+      })
+    });
+
+    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
+
+    // Invoke the actual deploy function
+    const deployFn = stackManager.hooks['after:deploy:deploy'];
+    await expectAsync(deployFn()).toBeRejectedWithError('Internal error');
+
+    expect(provRequestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke').length).toBe(1, 'Should have invoked only 1 invoke');
+    expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update').length).toBe(0, 'Should not have started monitoring');
+  });
+
   it('should continue deploying other stacks when a stack fails and continueOnFailure is true', async () => {
 
     const prefixToDeploy = 'FakePrefix';
@@ -340,7 +394,7 @@ describe('ServerlessStackSetManager', () => {
 
     const provRequestSpy = jasmine.createSpy()
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
-      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
     const cliLogSpy = jasmine.createSpy();
 
@@ -364,7 +418,7 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.throwError('terrible error');
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -388,7 +442,7 @@ describe('ServerlessStackSetManager', () => {
 
     const provRequestSpy = jasmine.createSpy()
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
-      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(undefined);
+      .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
     const cliLogSpy = jasmine.createSpy();
 

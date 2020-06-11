@@ -2,7 +2,7 @@ import Serverless from 'serverless';
 import monitorStackModule from 'serverless/lib/plugins/aws/lib/monitorStack';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
 
-export class ServerlessStackMonitor {
+export default class ServerlessStackMonitor {
 
   constructor(
     private readonly serverless: Serverless,
