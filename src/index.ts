@@ -1,13 +1,12 @@
+import CloudFormation from 'aws-sdk/clients/cloudformation';
+import Serverless from 'serverless';
+import Plugin from 'serverless/classes/Plugin';
+import Aws from 'serverless/plugins/aws/provider/awsProvider';
 import { ServerlessStackMonitor } from './serverless-stack-monitor';
-
-import Serverless = require('serverless');
-import Plugin = require('serverless/classes/Plugin');
-import Aws = require('serverless/plugins/aws/provider/awsProvider');
-import CloudFormation = require('aws-sdk/clients/cloudformation');
 
 type StackAction = (stackId: string) => Promise<string>;
 
-class ServerlessStackSetManager implements Plugin {
+export default class ServerlessStackSetManager implements Plugin {
   public hooks: Plugin.Hooks;
   private provider: Aws;
   private stackMonitor: ServerlessStackMonitor;

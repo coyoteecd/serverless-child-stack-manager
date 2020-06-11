@@ -1,8 +1,7 @@
+import Serverless from 'serverless';
+import monitorStackModule from 'serverless/lib/plugins/aws/lib/monitorStack';
+import Aws from 'serverless/plugins/aws/provider/awsProvider';
 import { ServerlessStackMonitor } from '../src/serverless-stack-monitor';
-
-import monitorStackModule = require('serverless/lib/plugins/aws/lib/monitorStack');
-import Serverless = require('serverless');
-import Aws = require('serverless/plugins/aws/provider/awsProvider');
 
 describe('ServerlessStackMonitor', () => {
 

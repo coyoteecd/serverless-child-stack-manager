@@ -38,6 +38,7 @@ module.exports = {
     'no-useless-constructor': 'off',
     'import/extensions': 'off',
     'import/no-unresolved': 'off',
+    'import/prefer-default-export': 'off',
 
     "@typescript-eslint/explicit-function-return-type": ["error", {
       "allowExpressions": true,

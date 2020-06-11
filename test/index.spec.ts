@@ -1,11 +1,8 @@
-import { ServerlessStackMonitor } from 'src/serverless-stack-monitor';
+import CloudFormation from 'aws-sdk/clients/cloudformation';
+import Aws from 'serverless/plugins/aws/provider/awsProvider';
+import ServerlessStackSetManager from '../src/index';
+import { ServerlessStackMonitor } from '../src/serverless-stack-monitor';
 import notMatching from './matchers/custom-matchers';
-
-import CloudFormation = require('aws-sdk/clients/cloudformation');
-import Aws = require('serverless/plugins/aws/provider/awsProvider');
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ServerlessStackSetManager = require('../src/index');
 
 describe('ServerlessStackSetManager', () => {
 
@@ -53,9 +50,8 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
 
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.resolveTo(undefined);
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
     const removeFn = stackManager.hooks['before:remove:remove'];
@@ -103,8 +99,7 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.resolveTo(undefined);
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -168,9 +163,8 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
 
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.resolveTo(undefined);
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
     const removeFn = stackManager.hooks['before:remove:remove'];
@@ -322,9 +316,8 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
     const errorMessage = 'terrible error';
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith(new Error(errorMessage));
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -371,8 +364,7 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.throwError('terrible error');
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.throwError('terrible error');
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -420,9 +412,8 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
     const errorMessage = 'terrible error';
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith(new Error(errorMessage));
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
     // Invoke the actual deploy function
     const deployFn = stackManager.hooks['after:deploy:deploy'];
@@ -469,8 +460,7 @@ describe('ServerlessStackSetManager', () => {
     });
 
     const stackManager = new ServerlessStackSetManager(serverless);
-    const stackMonitor = stackManager.stackMonitor as ServerlessStackMonitor;
-    const stackMonitorSpy = spyOn(stackMonitor, 'monitor').and.rejectWith('terrible error');
+    const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
     const removeFn = stackManager.hooks['before:remove:remove'];

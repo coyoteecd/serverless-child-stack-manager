@@ -1,8 +1,7 @@
-import monitorStackModule = require('serverless/lib/plugins/aws/lib/monitorStack');
-import Aws = require('serverless/plugins/aws/provider/awsProvider');
-import Serverless = require('serverless');
+import Serverless from 'serverless';
+import monitorStackModule from 'serverless/lib/plugins/aws/lib/monitorStack';
+import Aws from 'serverless/plugins/aws/provider/awsProvider';
 
-// eslint-disable-next-line import/prefer-default-export
 export class ServerlessStackMonitor {
 
   constructor(
