@@ -31,6 +31,10 @@ module.exports = {
       code: 160,
       ignoreUrls: true
     }],
+    'no-multiple-empty-lines': ['error', {
+      max: 1,
+      maxBOF: 1
+    }],
     'no-constant-condition': 'off',
     'no-await-in-loop': 'off',
     'arrow-parens': 'off',
