@@ -18,7 +18,7 @@ export default class ServerlessStackSetManager implements Plugin {
       'after:deploy:deploy': async () => this.afterDeploy()
     };
     this.provider = serverless.getProvider('aws');
-    this.stackMonitor = new ServerlessStackMonitor(this.serverless, this.provider);
+    this.stackMonitor = new ServerlessStackMonitor(this.serverless);
   }
 
   private async afterRemove(): Promise<void> {
