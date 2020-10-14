@@ -33,21 +33,21 @@
   "devDependencies": {
     "@types/jasmine": "^3.5.14",
     "@types/node": "^12.12.67",
-    "@types/serverless": "^1.78.1",
-    "@typescript-eslint/eslint-plugin": "^4.4.0",
-    "@typescript-eslint/parser": "^4.4.0",
-    "aws-sdk": "^2.770.0",
-    "eslint": "^7.10.0",
+    "@types/serverless": "^1.78.2",
+    "@typescript-eslint/eslint-plugin": "^4.4.1",
+    "@typescript-eslint/parser": "^4.4.1",
+    "aws-sdk": "^2.771.0",
+    "eslint": "^7.11.0",
     "eslint-config-airbnb-base": "^14.2.0",
     "eslint-plugin-import": "^2.22.1",
     "jasmine": "^3.6.1",
     "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
-    "serverless": "^2.5.0",
+    "serverless": "^2.7.0",
     "typescript": "^4.0.3"
   },
   "peerDependencies": {
     "aws-sdk": "^2.600.0",
-    "serverless": "^1.60.0"
+    "serverless": "^1.60.0 || ^2.0.0"
   }
 }
