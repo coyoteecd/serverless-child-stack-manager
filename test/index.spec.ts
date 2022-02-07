@@ -1,6 +1,7 @@
 import CloudFormation from 'aws-sdk/clients/cloudformation';
 import Lambda from 'aws-sdk/clients/lambda';
-import Serverless from 'serverless';
+import Serverless, { Options } from 'serverless';
+import { Logging } from 'serverless/classes/Plugin';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
 import ServerlessChildStackManager from '../src/index';
 import ServerlessStackMonitor from '../src/serverless-stack-monitor';
@@ -11,7 +12,7 @@ describe('ServerlessChildStackManager', () => {
   it('should create the plugin', () => {
     const { serverless } = stubServerlessInstance();
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
     expect(stackManager).toBeTruthy();
   });
 
@@ -25,6 +26,7 @@ describe('ServerlessChildStackManager', () => {
       ] as unknown as CloudFormation.StackSummary[]
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDelete,
       removalPolicy: 'remove',
@@ -35,7 +37,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
@@ -44,7 +46,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have invoked 2 deletes').toHaveSize(2);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started 2 monitors').toHaveSize(2);
-    expect(serverless.cli.log).toHaveBeenCalledWith('Stacks successfully removed');
+    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
   });
 
   it('should deploy all stacks with the specified prefixes', async () => {
@@ -57,6 +59,7 @@ describe('ServerlessChildStackManager', () => {
       ] as unknown as CloudFormation.StackSummary[]
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
       removalPolicy: 'remove',
@@ -67,7 +70,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
@@ -76,7 +79,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke')).withContext('Should have invoked 2 invokes').toHaveSize(2);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update')).withContext('Should have started 2 monitors').toHaveSize(2);
-    expect(serverless.cli.log).toHaveBeenCalledWith('Stacks successfully updated');
+    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully updated');
   });
 
   it('should read all paged listings and delete all stacks with the specified prefix', async () => {
@@ -101,6 +104,7 @@ describe('ServerlessChildStackManager', () => {
       ] as unknown as CloudFormation.StackSummary[]
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDelete,
       removalPolicy: 'remove',
@@ -113,7 +117,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.objectContaining({ NextToken: '2' })).and.resolveTo(fakeListOutput3)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
@@ -122,23 +126,24 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have invoked 5 deletes').toHaveSize(5);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started 5 monitors').toHaveSize(5);
-    expect(serverless.cli.log).toHaveBeenCalledWith('Stacks successfully removed');
+    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
   });
 
   it('should not delete if the stack listing yields empty response', async () => {
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: 'DontCare',
       removalPolicy: 'remove'
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(serverless.cli.log).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
+    expect(logging.log.success).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
     expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'deleteStack', jasmine.anything());
   });
 
@@ -147,41 +152,52 @@ describe('ServerlessChildStackManager', () => {
       StackSummaries: []
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
-      childStacksNamePrefix: 'dontcare',
+      childStacksNamePrefix: 'DontCare',
       removalPolicy: 'remove'
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(serverless.cli.log).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
-  });
-
-  it('should skip when the removalPolicy is set to keep', async () => {
-    const { serverless, requestSpy } = stubServerlessInstance({
-      childStacksNamePrefix: 'dontcare'
-    });
-    requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo({});
-
-    const stackManager = new ServerlessChildStackManager(serverless);
-    const removeFn = stackManager.hooks['before:remove:remove'];
-
-    // Invoke the actual remove function
-    await expectAsync(removeFn()).toBeResolved();
-    expect(serverless.cli.log).toHaveBeenCalledWith(jasmine.stringMatching(/^Skipping remove.*removalPolicy/));
+    expect(logging.log.success).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
     expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'deleteStack', jasmine.anything());
   });
 
-  it('should not deploy if the stack listing yields no stacks', async () => {
+  it('should skip delete when the removalPolicy is set to default (keep)', async () => {
+    const prefixToDeploy = 'FakePrefix';
+    const fakeListOutput = {
+      StackSummaries: [
+        { StackId: 1, StackName: `${prefixToDeploy}-FakeEntry1` },
+      ] as unknown as CloudFormation.StackSummaries
+    } as CloudFormation.ListStacksOutput;
+
+    const logging = stubLogging();
+    const { serverless, requestSpy } = stubServerlessInstance({
+      childStacksNamePrefix: prefixToDeploy
+    });
+    requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
+
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
+    const removeFn = stackManager.hooks['before:remove:remove'];
+
+    // Invoke the actual remove function
+    await expectAsync(removeFn()).toBeResolved();
+    expect(logging.log.verbose).toHaveBeenCalledWith(jasmine.stringMatching(/^Skipping remove.*removalPolicy/));
+    expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'deleteStack', jasmine.anything());
+  });
+
+  it('should not deploy if the stack listing yields no result', async () => {
     const fakeListOutput = {
       StackSummaries: []
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: 'DontCare',
       removalPolicy: 'remove',
@@ -189,13 +205,14 @@ describe('ServerlessChildStackManager', () => {
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const deployFn = stackManager.hooks['after:deploy:deploy'];
 
     // Invoke the actual remove function
     await expectAsync(deployFn()).toBeResolved();
 
-    expect(serverless.cli.log).toHaveBeenCalledWith('Skipping update of child stacks because no stacks found');
+    expect(logging.log.success).toHaveBeenCalledWith('Skipping update of child stacks because no stacks found');
+    expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'invoke', jasmine.anything());
   });
 
   it('should throw when the stack prefix is omitted', async () => {
@@ -203,7 +220,7 @@ describe('ServerlessChildStackManager', () => {
       childStacksNamePrefix: undefined
     });
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
@@ -230,7 +247,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
     const errorMessage = 'terrible error';
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
@@ -268,7 +285,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(errorResponse);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
@@ -289,6 +306,7 @@ describe('ServerlessChildStackManager', () => {
       ] as unknown as CloudFormation.StackSummary[]
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
       removalPolicy: 'remove',
@@ -299,7 +317,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
@@ -308,7 +326,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke')).withContext('Should have deleted all 3 stacks').toHaveSize(3);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update')).withContext('Should have started all 3 monitors').toHaveSize(3);
-    expect(serverless.cli.log).toHaveBeenCalledWith('Stacks successfully updated');
+    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully updated');
   });
 
   it('should stop removing other stacks when a stack fails and continueOnFailure is false', async () => {
@@ -331,7 +349,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
     const errorMessage = 'terrible error';
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
@@ -353,6 +371,7 @@ describe('ServerlessChildStackManager', () => {
       ] as unknown as CloudFormation.StackSummary[]
     } as CloudFormation.ListStacksOutput;
 
+    const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
       removalPolicy: 'remove',
@@ -363,7 +382,7 @@ describe('ServerlessChildStackManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessChildStackManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, logging);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
@@ -372,7 +391,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have deleted all 3 stacks').toHaveSize(3);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started all 3 monitors').toHaveSize(3);
-    expect(serverless.cli.log).toHaveBeenCalledWith('Stacks successfully removed');
+    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
   });
 
   function stubServerlessInstance(config?: Partial<ServerlessChildStackManagerConfig>): { requestSpy: jasmine.Spy; serverless: jasmine.SpyObj<Serverless> } {
@@ -391,6 +410,21 @@ describe('ServerlessChildStackManager', () => {
           }
         }),
       })
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function stubLogging(): { writeText, log: jasmine.SpyObj<Logging['log']>, progress: jasmine.SpyObj<any> } {
+    const progressInstance = jasmine.createSpyObj(['update', 'remove']);
+    return {
+      writeText: undefined,
+      log: jasmine.createSpyObj<Logging['log']>([
+        'error', 'warning', 'success', 'notice', 'verbose'
+      ]),
+      progress: jasmine.createSpyObj({
+        create: progressInstance,
+        get: progressInstance
+      }),
     };
   }
 });
