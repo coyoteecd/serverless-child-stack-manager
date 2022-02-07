@@ -9,11 +9,27 @@ import notMatching from './matchers/custom-matchers';
 
 describe('ServerlessChildStackManager', () => {
 
-  it('should create the plugin', () => {
+  it('should create the plugin and set up configuration schema', () => {
     const { serverless } = stubServerlessInstance();
 
-    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
-    expect(stackManager).toBeTruthy();
+    const plugin = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
+    expect(plugin).toBeTruthy();
+
+    expect(serverless.configSchemaHandler.defineCustomProperties).toHaveBeenCalledWith({
+      type: 'object',
+      properties: {
+        'serverless-child-stack-manager': jasmine.objectContaining({
+          properties: jasmine.objectContaining({
+            childStacksNamePrefix: jasmine.anything(),
+            removalPolicy: jasmine.anything(),
+            cfnRole: jasmine.anything(),
+            maxConcurrentCount: jasmine.anything(),
+            upgradeFunction: jasmine.anything(),
+            continueOnFailure: jasmine.anything(),
+          })
+        })
+      }
+    });
   });
 
   it('should delete all stacks with the specified prefixes', async () => {
@@ -409,6 +425,7 @@ describe('ServerlessChildStackManager', () => {
             'serverless-child-stack-manager': config
           }
         }),
+        configSchemaHandler: jasmine.createSpyObj(['defineCustomProperties']),
       })
     };
   }

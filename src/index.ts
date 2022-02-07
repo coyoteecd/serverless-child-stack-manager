@@ -1,5 +1,6 @@
 import CloudFormation from 'aws-sdk/clients/cloudformation';
 import Lambda from 'aws-sdk/clients/lambda';
+import type { JSONSchemaType } from 'ajv';
 import Serverless, { Options } from 'serverless';
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
@@ -15,12 +16,33 @@ export default class ServerlessChildStackManager implements Plugin {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private progress: any;
 
+  private configSchema: JSONSchemaType<ServerlessChildStackManagerConfig> = {
+    type: 'object',
+    properties: {
+      childStacksNamePrefix: { type: 'string', nullable: false },
+      upgradeFunction: { type: 'string', nullable: false },
+      continueOnFailure: { type: 'boolean', nullable: true, default: false },
+      maxConcurrentCount: { type: 'integer', nullable: true, default: 5 },
+      cfnRole: { type: 'string', nullable: true },
+      removalPolicy: { type: 'string', enum: ['keep', 'remove'], nullable: true, default: 'keep' },
+    },
+    required: ['childStacksNamePrefix'],
+    additionalProperties: false,
+  };
+
   constructor(private readonly serverless: Serverless, _options: Options, logging: Logging) {
     this.provider = serverless.getProvider('aws');
     this.log = logging.log;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.progress = (logging as any).progress;
     this.stackMonitor = new ServerlessStackMonitor(this.serverless);
+
+    this.serverless.configSchemaHandler.defineCustomProperties({
+      type: 'object',
+      properties: {
+        'serverless-child-stack-manager': this.configSchema
+      }
+    });
 
     this.hooks = {
       'before:remove:remove': async () => this.afterRemove(),
