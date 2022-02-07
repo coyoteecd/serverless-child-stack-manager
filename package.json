@@ -1,6 +1,6 @@
 {
   "name": "serverless-child-stack-manager",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Serverless plugin for removing a set of related stacks upon 'serverless remove'",
   "main": "dist/index.js",
   "scripts": {
