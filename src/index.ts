@@ -7,7 +7,7 @@ import ServerlessStackMonitor from './serverless-stack-monitor';
 
 type StackAction = (stackId: string) => Promise<string>;
 
-export default class ServerlessStackSetManager implements Plugin {
+export default class ServerlessChildStackManager implements Plugin {
   public hooks: Plugin.Hooks;
   private provider: Aws;
   private stackMonitor: ServerlessStackMonitor;
@@ -193,4 +193,4 @@ export default class ServerlessStackSetManager implements Plugin {
   }
 }
 
-module.exports = ServerlessStackSetManager;
+module.exports = ServerlessChildStackManager;

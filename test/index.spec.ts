@@ -2,16 +2,16 @@ import CloudFormation from 'aws-sdk/clients/cloudformation';
 import Lambda from 'aws-sdk/clients/lambda';
 import Serverless from 'serverless';
 import Aws from 'serverless/plugins/aws/provider/awsProvider';
-import ServerlessStackSetManager from '../src/index';
+import ServerlessChildStackManager from '../src/index';
 import ServerlessStackMonitor from '../src/serverless-stack-monitor';
 import notMatching from './matchers/custom-matchers';
 
-describe('ServerlessStackSetManager', () => {
+describe('ServerlessChildStackManager', () => {
 
-  it('should create the Stack Set Manager', () => {
+  it('should create the plugin', () => {
     const { serverless } = stubServerlessInstance();
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     expect(stackManager).toBeTruthy();
   });
 
@@ -35,7 +35,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
@@ -67,7 +67,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
@@ -113,7 +113,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.objectContaining({ NextToken: '2' })).and.resolveTo(fakeListOutput3)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual remove function
@@ -132,7 +132,7 @@ describe('ServerlessStackSetManager', () => {
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
@@ -153,7 +153,7 @@ describe('ServerlessStackSetManager', () => {
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
@@ -168,7 +168,7 @@ describe('ServerlessStackSetManager', () => {
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
@@ -189,7 +189,7 @@ describe('ServerlessStackSetManager', () => {
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const deployFn = stackManager.hooks['after:deploy:deploy'];
 
     // Invoke the actual remove function
@@ -203,7 +203,7 @@ describe('ServerlessStackSetManager', () => {
       childStacksNamePrefix: undefined
     });
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const removeFn = stackManager.hooks['before:remove:remove'];
 
     // Invoke the actual remove function
@@ -230,7 +230,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const errorMessage = 'terrible error';
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
@@ -268,7 +268,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo(errorResponse);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.resolveTo(undefined);
 
     // Invoke the actual deploy function
@@ -299,7 +299,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
@@ -331,7 +331,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'invoke', jasmine.anything()).and.resolveTo({});
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const errorMessage = 'terrible error';
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith(new Error(errorMessage));
 
@@ -363,7 +363,7 @@ describe('ServerlessStackSetManager', () => {
       .withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput)
       .withArgs(jasmine.any(String), 'deleteStack', jasmine.anything()).and.resolveTo(undefined);
 
-    const stackManager = new ServerlessStackSetManager(serverless);
+    const stackManager = new ServerlessChildStackManager(serverless);
     const stackMonitorSpy = spyOn(ServerlessStackMonitor.prototype, 'monitor').and.rejectWith('terrible error');
 
     // Invoke the actual deploy function
