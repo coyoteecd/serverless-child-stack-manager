@@ -15,6 +15,15 @@ This can be useful to manage tenant resources in multi-tenant apps, when each te
 npm install serverless-child-stack-manager --save-dev
 ```
 
+### Compatibility with Serverless Framework
+
+Version 2.0.3 is compatible with Serverless Framework v3, but it uses the legacy logging interface.
+
+|serverless-child-stack-manager|Serverless Framework|
+|---|---|
+|≤ v1.3.0|v1.x|
+|v2.x|v2.x, v3.x|
+
 ## Usage
 
 Add the following to your `serverless.yml`:
