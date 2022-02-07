@@ -45,6 +45,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDelete,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: false
@@ -78,6 +79,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: false
@@ -123,6 +125,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDelete,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 2,
       continueOnFailure: false
@@ -149,6 +152,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: 'DontCare',
+      upgradeFunction: 'func',
       removalPolicy: 'remove'
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo({});
@@ -171,6 +175,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: 'DontCare',
+      upgradeFunction: 'func',
       removalPolicy: 'remove'
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
@@ -195,7 +200,8 @@ describe('ServerlessChildStackManager', () => {
 
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
-      childStacksNamePrefix: prefixToDeploy
+      childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
     });
     requestSpy.withArgs(jasmine.any(String), 'listStacks', jasmine.anything()).and.resolveTo(fakeListOutput);
 
@@ -216,6 +222,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: 'DontCare',
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       continueOnFailure: false
     });
@@ -243,6 +250,19 @@ describe('ServerlessChildStackManager', () => {
     await expectAsync(removeFn()).toBeRejectedWithError(/childStacksNamePrefix is required/);
   });
 
+  it('should throw when the stack upgrade function is omitted', async () => {
+    const { serverless } = stubServerlessInstance({
+      childStacksNamePrefix: 'defined',
+      upgradeFunction: undefined
+    });
+
+    const stackManager = new ServerlessChildStackManager(serverless, {} as Options, stubLogging());
+    const removeFn = stackManager.hooks['before:remove:remove'];
+
+    // Invoke the actual remove function
+    await expectAsync(removeFn()).toBeRejectedWithError(/upgradeFunction is required/);
+  });
+
   it('should stop deploying other stacks when a stack fails and continueOnFailure is false', async () => {
     const prefixToDeploy = 'FakePrefix';
     const fakeListOutput = {
@@ -255,6 +275,7 @@ describe('ServerlessChildStackManager', () => {
 
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: false
@@ -293,6 +314,7 @@ describe('ServerlessChildStackManager', () => {
 
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: false
@@ -325,6 +347,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: true
@@ -357,6 +380,7 @@ describe('ServerlessChildStackManager', () => {
 
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: false
@@ -390,6 +414,7 @@ describe('ServerlessChildStackManager', () => {
     const logging = stubLogging();
     const { serverless, requestSpy } = stubServerlessInstance({
       childStacksNamePrefix: prefixToDeploy,
+      upgradeFunction: 'func',
       removalPolicy: 'remove',
       maxConcurrentCount: 1,
       continueOnFailure: true
