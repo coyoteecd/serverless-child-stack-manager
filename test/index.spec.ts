@@ -22,7 +22,6 @@ describe('ServerlessChildStackManager', () => {
           properties: jasmine.objectContaining({
             childStacksNamePrefix: jasmine.anything(),
             removalPolicy: jasmine.anything(),
-            cfnRole: jasmine.anything(),
             maxConcurrentCount: jasmine.anything(),
             upgradeFunction: jasmine.anything(),
             continueOnFailure: jasmine.anything(),

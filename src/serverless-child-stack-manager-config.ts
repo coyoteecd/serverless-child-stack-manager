@@ -11,11 +11,6 @@ interface ServerlessChildStackManagerConfig {
    */
   removalPolicy: 'remove' | 'keep';
   /**
-   * Optional IAM Role for CloudFormation to assume when removing the child stacks.
-   * This role needs permissions to remove resources in the stacks.
-   */
-  cfnRole?: string;
-  /**
    * Maximum number of parallel stack operations to perform.
    * Useful to avoid throttling errors from AWS.
    */

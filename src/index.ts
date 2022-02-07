@@ -23,7 +23,6 @@ export default class ServerlessChildStackManager implements Plugin {
       upgradeFunction: { type: 'string', nullable: false, minLength: 1 },
       continueOnFailure: { type: 'boolean', nullable: true, default: false },
       maxConcurrentCount: { type: 'integer', nullable: true, default: 5 },
-      cfnRole: { type: 'string', nullable: true },
       removalPolicy: { type: 'string', enum: ['keep', 'remove'], nullable: true, default: 'keep' },
     },
     required: ['childStacksNamePrefix'],
