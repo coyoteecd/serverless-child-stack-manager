@@ -62,7 +62,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have invoked 2 deletes').toHaveSize(2);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started 2 monitors').toHaveSize(2);
-    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
+    expect(logging.log.success).toHaveBeenCalledWith('2 child stacks successfully removed');
   });
 
   it('should deploy all stacks with the specified prefixes', async () => {
@@ -96,7 +96,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke')).withContext('Should have invoked 2 invokes').toHaveSize(2);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update')).withContext('Should have started 2 monitors').toHaveSize(2);
-    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully updated');
+    expect(logging.log.success).toHaveBeenCalledWith('2 child stacks successfully updated');
   });
 
   it('should read all paged listings and delete all stacks with the specified prefix', async () => {
@@ -144,7 +144,6 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have invoked 5 deletes').toHaveSize(5);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started 5 monitors').toHaveSize(5);
-    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
   });
 
   it('should not delete if the stack listing yields empty response', async () => {
@@ -162,7 +161,7 @@ describe('ServerlessChildStackManager', () => {
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(logging.log.success).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
+    expect(logging.log.verbose).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
     expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'deleteStack', jasmine.anything());
   });
 
@@ -185,7 +184,7 @@ describe('ServerlessChildStackManager', () => {
     // Invoke the actual remove function
     await expectAsync(removeFn()).toBeResolved();
 
-    expect(logging.log.success).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
+    expect(logging.log.verbose).toHaveBeenCalledWith('Skipping remove of child stacks because no stacks found');
     expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'deleteStack', jasmine.anything());
   });
 
@@ -233,7 +232,7 @@ describe('ServerlessChildStackManager', () => {
     // Invoke the actual remove function
     await expectAsync(deployFn()).toBeResolved();
 
-    expect(logging.log.success).toHaveBeenCalledWith('Skipping update of child stacks because no stacks found');
+    expect(logging.log.verbose).toHaveBeenCalledWith('Skipping update of child stacks because no stacks found');
     expect(requestSpy).not.toHaveBeenCalledWith(jasmine.anything(), 'invoke', jasmine.anything());
   });
 
@@ -364,7 +363,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'invoke')).withContext('Should have deleted all 3 stacks').toHaveSize(3);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'update')).withContext('Should have started all 3 monitors').toHaveSize(3);
-    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully updated');
+    expect(logging.log.success).toHaveBeenCalledWith('3 child stacks successfully updated');
   });
 
   it('should stop removing other stacks when a stack fails and continueOnFailure is false', async () => {
@@ -431,7 +430,7 @@ describe('ServerlessChildStackManager', () => {
 
     expect(requestSpy.calls.allArgs().filter(arg => arg[1] === 'deleteStack')).withContext('Should have deleted all 3 stacks').toHaveSize(3);
     expect(stackMonitorSpy.calls.allArgs().filter(arg => arg[0] === 'removal')).withContext('Should have started all 3 monitors').toHaveSize(3);
-    expect(logging.log.success).toHaveBeenCalledWith('Stacks successfully removed');
+    expect(logging.log.success).toHaveBeenCalledWith('3 child stacks successfully removed');
   });
 
   function stubServerlessInstance(config?: Partial<ServerlessChildStackManagerConfig>): { requestSpy: jasmine.Spy; serverless: jasmine.SpyObj<Serverless> } {

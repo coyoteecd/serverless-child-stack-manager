@@ -52,21 +52,19 @@ export default class ServerlessChildStackManager implements Plugin {
   private async afterRemove(): Promise<void> {
     const config = this.loadConfig();
     if (config.removalPolicy === 'remove') {
-      this.log.notice(`Removing stacks prefixed with: ${config.childStacksNamePrefix}`);
+      this.log.verbose(`Removing child stacks prefixed with: ${config.childStacksNamePrefix}`);
 
       const stackIds = await this.listMatchingStacks(config.childStacksNamePrefix);
-      this.log.verbose(`Found ${stackIds.length} stacks`);
+      this.log.verbose(`Found ${stackIds.length} child stacks`);
 
       if (stackIds.length > 0) {
-        this.log.verbose('Starting delete operation');
-
         const deleteAction: StackAction = stackId => this
           .deleteStack(stackId)
           .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
         await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, deleteAction);
-        this.log.success('Stacks successfully removed');
+        this.log.success(`${stackIds.length} child stacks successfully removed`);
       } else {
-        this.log.success('Skipping remove of child stacks because no stacks found');
+        this.log.verbose('Skipping remove of child stacks because no stacks found');
       }
 
     } else {
@@ -76,20 +74,19 @@ export default class ServerlessChildStackManager implements Plugin {
 
   private async afterDeploy(): Promise<void> {
     const config = this.loadConfig();
-    this.log.notice(`Deploying stacks prefixed with: ${config.childStacksNamePrefix}`);
+    this.log.verbose(`Invoking upgrade function for child stacks prefixed with: ${config.childStacksNamePrefix}`);
 
     const stackIds = await this.listMatchingStacks(config.childStacksNamePrefix);
     this.log.verbose(`Found ${stackIds.length} stacks`);
 
     if (stackIds.length > 0) {
-      this.log.verbose('Starting update operation');
       const updateAction: StackAction = stackId => this
         .deployStack(stackId, config.upgradeFunction)
         .catch(err => this.handleStackActionError(err, stackId, config.continueOnFailure));
       await this.executeConcurrentStackActions(stackIds, config.maxConcurrentCount, updateAction);
-      this.log.success('Stacks successfully updated');
+      this.log.success(`${stackIds.length} child stacks successfully updated`);
     } else {
-      this.log.success('Skipping update of child stacks because no stacks found');
+      this.log.verbose('Skipping update of child stacks because no stacks found');
     }
   }
 
@@ -109,6 +106,10 @@ export default class ServerlessChildStackManager implements Plugin {
    */
   private async executeConcurrentStackActions(stackIds: string[], maxConcurrentCount: number, stackAction: StackAction): Promise<void> {
 
+    const executeProgress = this.progress.create({
+      message: `Processing child stacks (0/${stackIds.length})`
+    });
+
     // We don't delete/deploy everything at once, because we risk being throttled by AWS
     //
     // This map tracks the stack IDs being handled and the related promises.
@@ -127,7 +128,6 @@ export default class ServerlessChildStackManager implements Plugin {
 
     while (true) {
       const completedStackId = await Promise.race(ongoingUpdates.values());
-      this.progress.get(completedStackId).update('Done');
 
       // remove the completed promise and queue another delete operation to keep CloudFormation busy
       ongoingUpdates.delete(completedStackId);
@@ -136,11 +136,15 @@ export default class ServerlessChildStackManager implements Plugin {
         ongoingUpdates.set(nextStackId, stackAction(nextStackId));
       }
 
+      executeProgress.update(`Processing child stacks (${stackIds.length - queuedStackIds.length}/${stackIds.length})`);
+
       // see if there's more work to do
       if (ongoingUpdates.size === 0) {
         break;
       }
     }
+
+    executeProgress.remove();
   }
 
   private async listMatchingStacks(childStacksNamePrefix: string): Promise<string[]> {
@@ -179,19 +183,26 @@ export default class ServerlessChildStackManager implements Plugin {
   }
 
   private async deleteStack(stackId: string): Promise<string> {
+    const deleteProgress = this.progress.create({
+      name: stackId,
+      message: `Removing stack ${stackId}`
+    });
+
     const deleteParams: CloudFormation.DeleteStackInput = {
       StackName: stackId
     };
     await this.provider.request('CloudFormation', 'deleteStack', deleteParams);
 
-    return this.stackMonitor.monitor('removal', stackId).then(() => stackId);
+    return this.stackMonitor.monitor('removal', stackId)
+      .then(() => deleteProgress.remove())
+      .then(() => stackId);
   }
 
   private async deployStack(stackId: string, upgradeFunction: string): Promise<string> {
 
-    this.progress.create({
+    const deployProgress = this.progress.create({
       name: stackId,
-      message: 'Deploying stack'
+      message: `Deploying stack ${stackId}`
     });
 
     const params = {
@@ -206,7 +217,9 @@ export default class ServerlessChildStackManager implements Plugin {
       const errorDetail: { errorMessage: string } = JSON.parse(response.Payload.toString());
       throw new Error(errorDetail.errorMessage);
     }
-    return this.stackMonitor.monitor('update', stackId).then(() => stackId);
+    return this.stackMonitor.monitor('update', stackId)
+      .then(() => deployProgress.remove())
+      .then(() => stackId);
   }
 
   private loadConfig(): ServerlessChildStackManagerConfig {
