@@ -31,8 +31,8 @@
   },
   "homepage": "https://github.com/coyoteecd/serverless-child-stack-manager#readme",
   "devDependencies": {
-    "@types/jasmine": "^3.10.6",
-    "@types/node": "^14.18.20",
+    "@types/jasmine": "^4.0.3",
+    "@types/node": "^16.11.38",
     "@types/serverless": "^3.12.7",
     "@typescript-eslint/eslint-plugin": "^5.27.0",
     "@typescript-eslint/parser": "^5.27.0",

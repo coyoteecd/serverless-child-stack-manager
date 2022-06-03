@@ -5,7 +5,7 @@
  */
 function notMatching<T>(matcher: jasmine.AsymmetricMatcher<T>): jasmine.Expected<T> {
   return {
-    asymmetricMatch: (compareTo: T, util: ReadonlyArray<jasmine.CustomEqualityTester>): boolean => !matcher.asymmetricMatch(compareTo, util)
+    asymmetricMatch: (compareTo: T, util: jasmine.MatchersUtil): boolean => !matcher.asymmetricMatch(compareTo, util)
   };
 }
 
