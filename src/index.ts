@@ -21,9 +21,9 @@ export default class ServerlessChildStackManager implements Plugin {
     properties: {
       childStacksNamePrefix: { type: 'string', nullable: false, minLength: 1 },
       upgradeFunction: { type: 'string', nullable: false, minLength: 1 },
-      continueOnFailure: { type: 'boolean', nullable: true, default: false },
-      maxConcurrentCount: { type: 'integer', nullable: true, default: 5 },
-      removalPolicy: { type: 'string', enum: ['keep', 'remove'], nullable: true, default: 'keep' },
+      continueOnFailure: { type: 'boolean', default: false },
+      maxConcurrentCount: { type: 'integer', default: 5 },
+      removalPolicy: { type: 'string', enum: ['keep', 'remove'], default: 'keep' },
     },
     required: ['childStacksNamePrefix'],
     additionalProperties: false,

@@ -2,7 +2,10 @@ import Serverless from 'serverless';
 import Plugin from 'serverless/classes/Plugin';
 
 export interface AwsDeployPlugin extends Plugin {
-  monitorStack(actionDescription: 'create' | 'update' | 'removal', { StackId: string }, options: { frequency?: number, verbose?: boolean }): Promise<string>;
+  monitorStack(
+    actionDescription: 'create' | 'update' | 'removal',
+    stackInfo: { StackId: string },
+    options: { frequency?: number, verbose?: boolean }): Promise<string>;
 }
 
 export default class ServerlessStackMonitor {
